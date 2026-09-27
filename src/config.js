@@ -7,13 +7,12 @@
 module.exports = {
   port: process.env.PORT || 3000,
 
-  // Secret untuk menandatangani JWT
-  jwtSecret: 'kX9mQ2vLp4RtY8wZ3nB6cD1fH7jS5aE0',
+  // Mengambil secret dari Environment Variable
+  jwtSecret: process.env.JWT_SECRET,
 
-  // API key payment gateway (palsu)
-  paymentGatewayApiKey: 'spk_live_9f8e7d6c5b4a3928170e6f5d4c3b2a19',
+  // Mengambil API key dari Environment Variable
+  paymentGatewayApiKey: process.env.PAYMENT_GATEWAY_API_KEY,
 
-  // Pengaturan default aplikasi
   defaultSettings: {
     currency: 'IDR',
     dailyTransferLimit: 10000000,
