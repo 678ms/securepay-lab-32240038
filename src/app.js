@@ -22,15 +22,23 @@ async function createApp() {
       res.status(401).json({ error: 'Token tidak valid' });
     }
   }
+  function escapeHtml(unsafe) {
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   // Health check
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// Halaman sambutan
   app.get('/welcome', (req, res) => {
-    let name = req.query.name || 'Tamu';
-    // Mencegah kode HTML/Javascript dieksekusi oleh browser
-    name = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    res.send(`<h1>Selamat datang di SecurePay, ${name}!</h1>`);
+    const name = req.query.name || 'Tamu';
+    const safeName = escapeHtml(name); // Input diamankan di sini
+    res.send(`<h1>Selamat datang di SecurePay, ${safeName}!</h1>`);
   });
 
 // Login -> mengembalikan JWT
