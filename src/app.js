@@ -26,9 +26,10 @@ async function createApp() {
   // Health check
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-  // Halaman sambutan
   app.get('/welcome', (req, res) => {
-    const name = req.query.name || 'Tamu';
+    let name = req.query.name || 'Tamu';
+    // Mencegah kode HTML/Javascript dieksekusi oleh browser
+    name = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     res.send(`<h1>Selamat datang di SecurePay, ${name}!</h1>`);
   });
 
@@ -47,20 +48,21 @@ async function createApp() {
     res.json({ token });
   });
 
-  // Cari pengguna berdasarkan nama
+// 1. Cari pengguna berdasarkan nama
   app.get('/api/users/search', (req, res) => {
     const q = req.query.q || '';
-    const rows = all(db, `SELECT id, username, full_name FROM users WHERE full_name LIKE '%${q}%'`);
+    // Ganti fungsi all() menjadi allBound() dengan parameter array
+    const rows = allBound(db, `SELECT id, username, full_name FROM users WHERE full_name LIKE ?`, [`%${q}%`]);
     res.json(rows);
   });
 
-  // Detail pengguna berdasarkan id
+  // 2. Detail pengguna berdasarkan id
   app.get('/api/users/:id', (req, res) => {
-    const rows = all(db, 'SELECT id, username, full_name, role FROM users WHERE id = ' + req.params.id);
+    // Ganti fungsi all() menjadi allBound() dengan parameter array
+    const rows = allBound(db, 'SELECT id, username, full_name, role FROM users WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
     res.json(rows[0]);
   });
-
   // Transfer uang antar pengguna
   app.post('/api/transfer', requireAuth, (req, res) => {
     const { from, to, amount } = req.body;
@@ -89,7 +91,8 @@ async function createApp() {
 
   // Penanganan error
   app.use((err, req, res, next) => {
-    res.status(500).send(`<pre>${err.stack}</pre>`);
+    console.error(err.stack); // Catat detail error secara diam-diam di terminal server
+    res.status(500).send('Maaf, terjadi kesalahan pada sistem kami.'); // Tampilkan pesan aman ke pengguna
   });
 
   return app;
