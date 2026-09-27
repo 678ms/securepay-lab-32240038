@@ -90,19 +90,31 @@ async function createApp() {
     if (rows.length === 0) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
     res.json(rows[0]);
   });
-  // Transfer uang antar pengguna
+  
+  // Transfer uang antar pengguna (Diperbaiki dari Celah Logika Bisnis)
   app.post('/api/transfer', requireAuth, (req, res) => {
     const { from, to, amount } = req.body;
+    // FIX 1: Pastikan pengirim adalah user yang sedang terautentikasi (Cegah IDOR)
+    if (from !== req.user.username) {
+      return res.status(403).json({ error: 'Anda tidak diizinkan melakukan transfer dari akun ini' });
+    }
+    // FIX 2: Validasi amount harus berupa angka dan bernilai positif
+    if (typeof amount !== 'number' || amount <= 0 || isNaN(amount)) {
+      return res.status(400).json({ error: 'Jumlah transfer harus berupa angka positif' });
+    }
+    // FIX Tambahan: Mencegah transfer ke diri sendiri
+    if (from === to) {
+      return res.status(400).json({ error: 'Tidak dapat melakukan transfer ke akun sendiri' });
+    }
     const sender = allBound(db, 'SELECT * FROM users WHERE username = ?', [from])[0];
-    const receiver = allBound(db, 'SELECT * FROM users WHERE username = ?', [to])[0];
+    const receiver = allBound(db, 'SELECT * FROM users WHERE username = ?', [to])[0]; 
     if (!sender || !receiver) return res.status(404).json({ error: 'Akun tidak ditemukan' });
     if (sender.balance < amount) return res.status(400).json({ error: 'Saldo tidak cukup' });
-
     db.run('UPDATE users SET balance = balance - ? WHERE username = ?', [amount, from]);
     db.run('UPDATE users SET balance = balance + ? WHERE username = ?', [amount, to]);
     res.json({ message: 'Transfer berhasil', from, to, amount });
   });
-
+  
   // Lihat saldo
   app.get('/api/balance/:username', requireAuth, (req, res) => {
     const rows = allBound(db, 'SELECT username, balance FROM users WHERE username = ?', [req.params.username]);

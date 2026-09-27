@@ -73,3 +73,23 @@ test('transfer tanpa token ditolak', async () => {
   });
   assert.strictEqual(res.status, 401);
 });
+
+test('transfer dari akun orang lain ditolak (Celah IDOR)', async () => {
+  const { token } = await (await login('budi', 'budi123')).json();
+  const res = await fetch(`${base}/api/transfer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ from: 'sari', to: 'budi', amount: 100000 }),
+  });
+  assert.strictEqual(res.status, 403);
+});
+
+test('transfer dengan nominal negatif ditolak', async () => {
+  const { token } = await (await login('budi', 'budi123')).json();
+  const res = await fetch(`${base}/api/transfer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ from: 'budi', to: 'sari', amount: -500000 }),
+  });
+  assert.strictEqual(res.status, 400);
+});
