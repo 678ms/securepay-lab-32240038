@@ -93,5 +93,6 @@ jobs:
     needs: [build-test, secret-scan, dependency-scan, sast]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - run: echo "Semua security gate lolos. Deploy ke staging (simulasi)."
