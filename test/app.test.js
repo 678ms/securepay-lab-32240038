@@ -1,3 +1,6 @@
+process.env.JWT_SECRET = 'secret-palsu-khusus-untuk-testing';
+process.env.PAYMENT_GATEWAY_API_KEY = 'api-key-palsu-untuk-testing';
+
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { createApp } = require('../src/app');
