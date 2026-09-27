@@ -7,7 +7,6 @@ function hashPassword(password, salt) {
   const hash = crypto.scryptSync(String(password), actualSalt, 64).toString('hex');
   return `${actualSalt}:${hash}`;
 }
-}
 
 // Membuat database SQLite in-memory berisi data contoh
 async function createDb() {
