@@ -22,45 +22,74 @@ async function createApp() {
       res.status(401).json({ error: 'Token tidak valid' });
     }
   }
+  function escapeHtml(unsafe) {
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   // Health check
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-  // Halaman sambutan
+// Halaman sambutan
   app.get('/welcome', (req, res) => {
     const name = req.query.name || 'Tamu';
-    res.send(`<h1>Selamat datang di SecurePay, ${name}!</h1>`);
+    const safeName = escapeHtml(name); // Input diamankan di sini
+    res.send(`<h1>Selamat datang di SecurePay, ${safeName}!</h1>`);
   });
 
-  // Login -> mengembalikan JWT
+// Login -> mengembalikan JWT
   app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const rows = allBound(
-      db,
-      'SELECT id, username, role FROM users WHERE username = ? AND password_hash = ?',
-      [username, hashPassword(String(password))]
-    );
+    
+    // 1. HANYA cari berdasarkan username (Jangan ada cek password di SQL)
+    const rows = allBound(db, 'SELECT id, username, role, password_hash FROM users WHERE username = ?', [username]);
+    
+    // Jika username tidak ada di database
     if (rows.length === 0) return res.status(401).json({ error: 'Username atau password salah' });
-    const token = jwt.sign({ id: rows[0].id, username: rows[0].username, role: rows[0].role }, config.jwtSecret, {
+    
+    const user = rows[0];
+    
+    // 2. Pisahkan salt dan hash yang tersimpan di database
+    const [savedSalt, savedHash] = user.password_hash.split(':');
+    
+    // 3. Hash ulang password input menggunakan salt dari database
+    const crypto = require('crypto');
+    const hashAttempt = crypto.scryptSync(String(password), savedSalt, 64).toString('hex');
+    
+    // 4. Bandingkan dengan timingSafeEqual (diubah ke format buffer 'hex' agar akurat)
+    const isMatch = crypto.timingSafeEqual(Buffer.from(savedHash, 'hex'), Buffer.from(hashAttempt, 'hex'));
+    
+    // Jika password tidak cocok
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Username atau password salah' });
+    }
+
+    // Jika berhasil, buat token
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, config.jwtSecret, {
       expiresIn: '1h',
     });
     res.json({ token });
   });
 
-  // Cari pengguna berdasarkan nama
+// 1. Cari pengguna berdasarkan nama
   app.get('/api/users/search', (req, res) => {
     const q = req.query.q || '';
-    const rows = all(db, `SELECT id, username, full_name FROM users WHERE full_name LIKE '%${q}%'`);
+    // Ganti fungsi all() menjadi allBound() dengan parameter array
+    const rows = allBound(db, `SELECT id, username, full_name FROM users WHERE full_name LIKE ?`, [`%${q}%`]);
     res.json(rows);
   });
 
-  // Detail pengguna berdasarkan id
+  // 2. Detail pengguna berdasarkan id
   app.get('/api/users/:id', (req, res) => {
-    const rows = all(db, 'SELECT id, username, full_name, role FROM users WHERE id = ' + req.params.id);
+    // Ganti fungsi all() menjadi allBound() dengan parameter array
+    const rows = allBound(db, 'SELECT id, username, full_name, role FROM users WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
     res.json(rows[0]);
   });
-
   // Transfer uang antar pengguna
   app.post('/api/transfer', requireAuth, (req, res) => {
     const { from, to, amount } = req.body;
@@ -89,7 +118,8 @@ async function createApp() {
 
   // Penanganan error
   app.use((err, req, res, next) => {
-    res.status(500).send(`<pre>${err.stack}</pre>`);
+    console.error(err.stack); // Catat detail error secara diam-diam di terminal server
+    res.status(500).send('Maaf, terjadi kesalahan pada sistem kami.'); // Tampilkan pesan aman ke pengguna
   });
 
   return app;

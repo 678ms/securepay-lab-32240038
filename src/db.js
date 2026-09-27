@@ -2,8 +2,10 @@ const crypto = require('crypto');
 const initSqlJs = require('sql.js');
 
 // Hash password (lihat apakah ini aman?)
-function hashPassword(password) {
-  return crypto.createHash('md5').update(password).digest('hex');
+function hashPassword(password, salt) {
+  const actualSalt = salt || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), actualSalt, 64).toString('hex');
+  return `${actualSalt}:${hash}`;
 }
 
 // Membuat database SQLite in-memory berisi data contoh
